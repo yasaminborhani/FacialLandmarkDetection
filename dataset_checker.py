@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from absl import app, flags
 from absl.flags import FLAGS
+import matplotlib.pyplot as plt
 
 from modules.dataset import load_tfrecord_dataset
 from modules.anchor import prior_box, decode_tf
@@ -66,9 +67,14 @@ def main(_):
                 draw_bbox_landm(img, targets[prior_index], img_dim, img_dim)
                 draw_anchor(img, priors[prior_index], img_dim, img_dim)
 
-        cv2.imshow('img', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        if cv2.waitKey(0) == ord('q'):
-            exit()
+        try:
+            cv2.imshow('img', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            if cv2.waitKey(0) == ord('q'):
+                exit()
+        except:
+            plt.imshow(img)
+            plt.show()
+            
 
     print("data fps: {:.2f}".format(num_samples / (time.time() - start_time)))
 
