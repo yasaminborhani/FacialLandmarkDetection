@@ -118,7 +118,9 @@ def get_target(labels):
             annotation[0, 14] = 1
 
         annotations = np.append(annotations, annotation, axis=0)
+        print('annot:',annotations.shape)
     target = np.array(annotations)
+    print('target:',target.shape)
 
     return target
 
