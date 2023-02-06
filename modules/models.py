@@ -212,6 +212,9 @@ def RetinaFaceModel(cfg, training=False, iou_th=0.4, score_th=0.02,
     x = inputs = Input([input_size, input_size, 3], name='input_image')
 
     x = Backbone(backbone_type=backbone_type)(x)
+    print(x[0].shape)
+    print(x[1].shape)
+    print(x[2].shape)
 
     fpn = FPN(out_ch=out_ch, wd=wd)(x)
 
