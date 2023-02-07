@@ -170,12 +170,12 @@ class rvit_encoder(tf.keras.Model):
 class rvit_backbone(tf.keras.Model):
     def __init__(self, 
                  filters=16,
-                 input_shape = (640, 640, 3),
+                #  input_shape = (640, 640, 3),
                  activation=tf.nn.gelu,
                  **kwargs):
         super(rvit_backbone, self).__init__(**kwargs)
         self.filters = filters
-        self.input_shape = input_shape
+        # self.input_shape = input_shape
         self.activation = activation
 
     def build(self, input_shape):
@@ -214,10 +214,12 @@ class rvit_backbone(tf.keras.Model):
         out3 = tf.concat([C4, H4], axis=-1)[:,0,...]
 
         out1 = self.stage1(out1)
-        out2 = self.stage1(out2)
-        out3 = self.stage1(out3)
+        out2 = self.stage2(out2)
+        out3 = self.stage3(out3)
 
         return out1, out2, out3
+
+
 
 def _regularizer(weights_decay):
     """l2 regularizer"""
@@ -268,6 +270,12 @@ def Backbone(backbone_type='ResNet50', use_pretrain=True):
             pick_layer2 = 116  # [40, 40, 96]
             pick_layer3 = 143  # [20, 20, 160]
             preprocess = tf.keras.applications.mobilenet_v2.preprocess_input
+        elif backbone_type == 'rvit':
+            inp = tf.keras.layers.Input(x.shape[1:])
+            x = rvit_backbone()(inp)
+            extractor = tf.keras.Model(inp, x, name='rvit_model')
+            preprocess = tf.keras.applications.resnet.preprocess_input
+
         else:
             raise NotImplementedError(
                 'Backbone type {} is not recognized.'.format(backbone_type))
