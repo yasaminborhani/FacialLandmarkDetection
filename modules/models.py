@@ -279,8 +279,8 @@ def Backbone(backbone_type='ResNet50', use_pretrain=True):
         elif backbone_type == 'rvit':
             print('input shape chie', x.shape[1:])
             inp = tf.keras.layers.Input(x.shape[1:])
-            x = rvit_backbone()(inp)
-            extractor = tf.keras.Model(inp, x, name='rvit_model')
+            layer = rvit_backbone()(inp)
+            extractor = tf.keras.Model(inp, layer, name='rvit_model')
             preprocess = tf.keras.applications.resnet.preprocess_input
 
         else:
