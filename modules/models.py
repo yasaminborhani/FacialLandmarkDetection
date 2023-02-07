@@ -287,9 +287,7 @@ def Backbone(backbone_type='ResNet50', use_pretrain=True):
             raise NotImplementedError(
                 'Backbone type {} is not recognized.'.format(backbone_type))
         if backbone_type == 'rvit':
-            return Model(extractor.input,
-                         extractor.outputs,
-                         name=backbone_type + '_extrator')(x)
+            return extractor(x)
         else:
             return Model(extractor.input,
                          (extractor.layers[pick_layer1].output,
