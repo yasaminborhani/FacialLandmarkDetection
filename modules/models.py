@@ -210,6 +210,10 @@ class rvit_backbone(tf.keras.Model):
         print(len(x.shape))
         if len(x.shape) == 4:
             x = tf.expand_dims(x, axis=1)
+            
+        print(x.shape)
+        print(len(x.shape))
+        
         _, _, C2, H2, C3, H3, C4, H4 = self.rvit(x)
         out1 = tf.concat([C2, H2], axis=-1)[:,0,...]
         out2 = tf.concat([C3, H3], axis=-1)[:,0,...]
