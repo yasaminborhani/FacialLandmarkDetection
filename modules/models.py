@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/content/recurrentvisiontrasformer')
+sys.path.append('./recurrentvisiontrasformer')
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.applications import MobileNetV2, ResNet50
