@@ -1,9 +1,223 @@
+import sys
+sys.path.append('/content/recurrentvisiontrasformer')
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.applications import MobileNetV2, ResNet50
 from tensorflow.keras.layers import Input, Conv2D, ReLU, LeakyReLU
 from modules.anchor import decode_tf, prior_box_tf
+from recurrentvisiontrasformer.rvt_modules import RVT_Block, RVT_BlockTranspose
 
+class rvit_encoder(tf.keras.Model):
+    def __init__(self, 
+                 filters=16,
+                 hidden_size=16,
+                 kernel_size=(3, 3),
+                 strides=(2, 2), 
+                 padding='same',
+                 norm=None,
+                 num_heads=8,
+                 window_size=4,
+                 grid_size=4,
+                 activation=tf.nn.gelu,
+                 dtype=tf.float32,
+                 **kwargs):
+        super(rvit_encoder, self).__init__(**kwargs)
+        
+        self.filters     = filters
+        self.hidden_size = filters
+        self.kernel_size = kernel_size
+        self.strides     = strides
+        self.padding     = padding
+        self.norm        = norm
+        self.num_heads   = num_heads
+        self.window_size = window_size
+        self.grid_size   = grid_size
+        self.activation  = activation
+        self.Dtype       = dtype
+        
+    def build(self, input_shape):
+        self.shape = input_shape
+        self.rvt_1 = RVT_Block(filters=self.filters,
+                                 hidden_size=self.hidden_size,
+                                 kernel_size=(7,7),
+                                 strides=(4,4), 
+                                 padding=self.padding,
+                                 norm=self.norm,
+                                 num_heads=self.num_heads,
+                                 window_size=self.window_size,
+                                 grid_size=self.grid_size,
+                                 activation=self.activation)
+        
+        self.rnn_1 = tf.keras.layers.ConvLSTM2D(filters=self.filters,
+                                                   kernel_size=(1, 1),
+                                                   strides=(1, 1),
+                                                   return_state=True)
+        
+        self.rvt_2 = RVT_Block(filters=self.filters*2,
+                                 hidden_size=self.hidden_size*2,
+                                 kernel_size=self.kernel_size,
+                                 strides=self.strides, 
+                                 padding=self.padding,
+                                 norm=self.norm,
+                                 num_heads=self.num_heads,
+                                 window_size=self.window_size,
+                                 grid_size=self.grid_size,
+                                 activation=self.activation)
+        
+        self.rnn_2 = tf.keras.layers.ConvLSTM2D(filters=self.filters*2,
+                                                   kernel_size=(1, 1),
+                                                   strides=(1, 1),
+                                                   return_state=True)
+        
+        self.rvt_3 = RVT_Block(filters=self.filters*4,
+                                 hidden_size=self.hidden_size*4,
+                                 kernel_size=self.kernel_size,
+                                 strides=self.strides, 
+                                 padding=self.padding,
+                                 norm=self.norm,
+                                 num_heads=self.num_heads,
+                                 window_size=self.window_size,
+                                 grid_size=self.grid_size,
+                                 activation=self.activation)
+        
+        self.rnn_3 = tf.keras.layers.ConvLSTM2D(filters=self.filters*4,
+                                                   kernel_size=(1, 1),
+                                                   strides=(1, 1),
+                                                   return_state=True)
+        
+        self.rvt_4 = RVT_Block(filters=self.filters*8,
+                                 hidden_size=self.hidden_size*8,
+                                 kernel_size=self.kernel_size,
+                                 strides=self.strides, 
+                                 padding=self.padding,
+                                 norm=self.norm,
+                                 num_heads=self.num_heads,
+                                 window_size=self.window_size,
+                               
+                                 grid_size=self.grid_size,
+                                 activation=self.activation)
+        
+        self.rnn_4 = tf.keras.layers.ConvLSTM2D(filters=self.filters*8,
+                                                   kernel_size=(1, 1),
+                                                   strides=(1, 1),
+                                                   return_state=True)
+    def call(self, x, training=False):
+        
+        C_1, H_1, O_1 = [], [], []
+        c_1           = tf.zeros((tf.shape(x)[0], self.shape[2]//4, self.shape[3]//4, self.filters*1), dtype=self.Dtype)
+        h_1           = tf.zeros((tf.shape(x)[0], self.shape[2]//4, self.shape[3]//4, self.filters*1), dtype=self.Dtype)
+        
+        C_2, H_2, O_2 = [], [], []
+        c_2           = tf.zeros((tf.shape(x)[0], self.shape[2]//8, self.shape[3]//8, self.filters*2), dtype=self.Dtype)
+        h_2           = tf.zeros((tf.shape(x)[0], self.shape[2]//8, self.shape[3]//8, self.filters*2), dtype=self.Dtype)
+
+        C_3, H_3, O_3 = [], [], []
+        c_3           = tf.zeros((tf.shape(x)[0], self.shape[2]//16, self.shape[3]//16, self.filters*4), dtype=self.Dtype)
+        h_3           = tf.zeros((tf.shape(x)[0], self.shape[2]//16, self.shape[3]//16, self.filters*4), dtype=self.Dtype)
+        
+        C_4, H_4, O_4 = [], [], []
+        c_4           = tf.zeros((tf.shape(x)[0], self.shape[2]//32, self.shape[3]//32, self.filters*8), dtype=self.Dtype)
+        h_4           = tf.zeros((tf.shape(x)[0], self.shape[2]//32, self.shape[3]//32, self.filters*8), dtype=self.Dtype)
+
+        
+        for i in range(x.shape[1]):
+            o = self.rvt_1(x[:, i, ...])[:, tf.newaxis, ...]
+            o, c_1, h_1 = self.rnn_1(o, initial_state=[c_1, h_1])
+            C_1.append(c_1[:, tf.newaxis, ...])
+            H_1.append(h_1[:, tf.newaxis, ...])
+            O_1.append(o[:, tf.newaxis, ...])
+            
+            o = self.rvt_2(o)[:, tf.newaxis, ...]
+            o, c_2, h_2 = self.rnn_2(o, initial_state=[c_2, h_2])
+            C_2.append(c_2[:, tf.newaxis, ...])
+            H_2.append(h_2[:, tf.newaxis, ...])
+            O_2.append(o[:, tf.newaxis, ...])
+            
+            
+            o = self.rvt_3(o)[:, tf.newaxis, ...]
+            o, c_3, h_3 = self.rnn_3(o, initial_state=[c_3, h_3])
+            C_3.append(c_3[:, tf.newaxis, ...])
+            H_3.append(h_3[:, tf.newaxis, ...])
+            O_3.append(o[:, tf.newaxis, ...])
+            
+            
+            o = self.rvt_4(o)[:, tf.newaxis, ...]
+            o, c_4, h_4 = self.rnn_4(o, initial_state=[c_4, h_4])
+            C_4.append(c_4[:, tf.newaxis, ...])
+            H_4.append(h_4[:, tf.newaxis, ...])
+            O_4.append(o[:, tf.newaxis, ...])
+            
+            
+        C_1 = tf.concat(C_1, axis=1)
+        O_1 = tf.concat(O_1, axis=1)
+        H_1 = tf.concat(H_1, axis=1)
+        
+        C_2 = tf.concat(C_2, axis=1)
+        O_2 = tf.concat(O_2, axis=1)
+        H_2 = tf.concat(H_2, axis=1)
+        
+        C_3 = tf.concat(C_3, axis=1)
+        O_3 = tf.concat(O_3, axis=1)
+        H_3 = tf.concat(H_3, axis=1)
+        
+        C_4 = tf.concat(C_4, axis=1)
+        O_4 = tf.concat(O_4, axis=1)
+        H_4 = tf.concat(H_4, axis=1)
+        
+        
+        return C_1, H_1, C_2, H_2, C_3, H_3, C_4, H_4
+
+class rvit_backbone(tf.keras.Model):
+    def __init__(self, 
+                 filters=16,
+                 input_shape = (640, 640, 3),
+                 activation=tf.nn.gelu,
+                 **kwargs):
+        super(rvit_backbone, self).__init__(**kwargs)
+        self.filters = filters
+        self.input_shape = input_shape
+        self.activation = activation
+
+    def build(self, input_shape):
+        self.rvit = rvit_encoder(filters=self.filters)
+        self.stage1 = tf.keras.layers.SeparableConv2D(filters=self.filters*2,
+                                                    kernel_size=(3, 3),
+                                                    strides=(1, 1),
+                                                    padding='same',
+                                                    dilation_rate=(2, 2),
+                                                    depth_multiplier=2,
+                                                    activation=self.activation)
+
+        self.stage2 = tf.keras.layers.SeparableConv2D(filters=self.filters*4,
+                                                    kernel_size=(3, 3),
+                                                    strides=(1, 1),
+                                                    padding='same',
+                                                    dilation_rate=(2, 2),
+                                                    depth_multiplier=2,
+                                                    activation=self.activation)
+
+        self.stage3 = tf.keras.layers.SeparableConv2D(filters=self.filters*8,
+                                                    kernel_size=(3, 3),
+                                                    strides=(1, 1),
+                                                    padding='same',
+                                                    dilation_rate=(2, 2),
+                                                    depth_multiplier=2,
+                                                    activation=self.activation)
+
+
+    def call(self, x, training=False):
+        if len(x.shape) == 4:
+            x = tf.expand_dims(x, axis=1)
+        _, _, C2, H2, C3, H3, C4, H4 = self.rvit(x)
+        out1 = tf.concat([C2, H2], axis=-1)[:,0,...]
+        out2 = tf.concat([C3, H3], axis=-1)[:,0,...]
+        out3 = tf.concat([C4, H4], axis=-1)[:,0,...]
+
+        out1 = self.stage1(out1)
+        out2 = self.stage1(out2)
+        out3 = self.stage1(out3)
+
+        return out1, out2, out3
 
 def _regularizer(weights_decay):
     """l2 regularizer"""
