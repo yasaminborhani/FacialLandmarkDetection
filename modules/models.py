@@ -282,7 +282,7 @@ def Backbone(backbone_type='ResNet50', use_pretrain=True):
         if backbone_type == 'rvit':
             return Model(extractor.input,
                          extractor.outputs,
-                         name=backbone_type + '_extrator')(preprocess(x))
+                         name=backbone_type + '_extrator')(x)
         else:
             return Model(extractor.input,
                          (extractor.layers[pick_layer1].output,
