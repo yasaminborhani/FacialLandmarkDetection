@@ -111,10 +111,10 @@ def main(_):
                 tf.summary.scalar(
                     'learning_rate', optimizer.lr(steps), step=steps)
 
-        if steps % cfg['save_steps'] == 0:
-            manager.save()
-            print("\n[*] save ckpt file at {}".format(
-                manager.latest_checkpoint))
+#         if steps % cfg['save_steps'] == 0:
+#             manager.save()
+#             print("\n[*] save ckpt file at {}".format(
+#                 manager.latest_checkpoint))
 
     manager.save()
     print("\n[*] training done! save ckpt file at {}".format(
