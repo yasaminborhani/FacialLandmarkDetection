@@ -255,7 +255,7 @@ class BatchNormalization(tf.keras.layers.BatchNormalization):
         return super().call(x, training)
 
 
-def Backbone(backbone_type='ResNet50', use_pretrain=True):
+def Backbone(backbone_type='ResNet50', use_pretrain=True, cfg=None):
     """Backbone Model"""
     weights = None
     if use_pretrain:
@@ -279,7 +279,7 @@ def Backbone(backbone_type='ResNet50', use_pretrain=True):
         elif backbone_type == 'rvit':
             print('input shape chie', x.shape[1:])
             inp = tf.keras.layers.Input(x.shape[1:])
-            layer = rvit_backbone()(inp)
+            layer = rvit_backbone(filters=cfg['filters'])(inp)
             extractor = tf.keras.Model(inp, layer, name='rvit_model')
             preprocess = tf.keras.applications.resnet.preprocess_input
 
@@ -442,10 +442,7 @@ def RetinaFaceModel(cfg, training=False, iou_th=0.4, score_th=0.02,
     # define model
     x = inputs = Input([input_size, input_size, 3], name='input_image')
 
-    x = Backbone(backbone_type=backbone_type)(x)
-    print(x[0].shape)
-    print(x[1].shape)
-    print(x[2].shape)
+    x = Backbone(backbone_type=backbone_type, cfg=cfg)(x)
 
     fpn = FPN(out_ch=out_ch, wd=wd)(x)
 
