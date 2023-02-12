@@ -2,7 +2,7 @@ from absl import app, flags, logging
 from absl.flags import FLAGS
 import os
 import tensorflow as tf
-
+import time
 from modules.models import RetinaFaceModel
 from modules.lr_scheduler import MultiStepWarmUpLR
 from modules.losses import MultiBoxLoss
@@ -14,10 +14,12 @@ from modules.utils import (set_memory_growth, load_yaml, load_dataset,
 flags.DEFINE_string('cfg_path', './configs/retinaface_res50.yaml',
                     'config file path')
 flags.DEFINE_string('gpu', '0', 'which gpu to use')
-
+flags.DEFINE_string('checkpoint', './checkpoints/', 'adrress for weights')
+flags.DEFINE_integer('timelimit', 3600, 'time to stop training')
 
 def main(_):
     # init
+    tic = time.time()
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['CUDA_VISIBLE_DEVICES'] = FLAGS.gpu
 
@@ -54,7 +56,7 @@ def main(_):
     multi_box_loss = MultiBoxLoss()
 
     # load checkpoint
-    checkpoint_dir = './checkpoints/' + cfg['sub_name']
+    checkpoint_dir = FLAGS.checkpoint + cfg['sub_name']
     checkpoint = tf.train.Checkpoint(step=tf.Variable(0, name='step'),
                                      optimizer=optimizer,
                                      model=model)
@@ -115,6 +117,9 @@ def main(_):
             manager.save()
             print("\n[*] save ckpt file at {}".format(
                 manager.latest_checkpoint))
+        if time.time() - tic >= FLAGS.timelimit:
+          print('train terminated due to time limit')
+          break
 
     manager.save()
     print("\n[*] training done! save ckpt file at {}".format(
